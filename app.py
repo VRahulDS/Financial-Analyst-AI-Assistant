@@ -171,16 +171,32 @@ html, body, [class*="css"] {
 # ── Session state ──────────────────────────────────────────────────────────
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
-if "db_ready" not in st.session_state:
-    st.session_state.db_ready = False
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "embed_model" not in st.session_state:
     st.session_state.embed_model = None
-if "collection" not in st.session_state:
-    st.session_state.collection = None
 if "ingest_stats" not in st.session_state:
     st.session_state.ingest_stats = {}
+
+# ── Always reconnect to the persistent ChromaDB on every rerun ────────────
+# initialize_DB(reset=False) calls get_or_create_collection — safe to call
+# every rerun; it never deletes data unless reset=True.
+if "collection" not in st.session_state:
+    st.session_state.collection = initialize_DB(reset=False)
+
+# Mark DB as ready if the collection already has documents from a previous run
+if "db_ready" not in st.session_state:
+    try:
+        existing_count = st.session_state.collection.count()
+        st.session_state.db_ready = existing_count > 0
+        if st.session_state.db_ready and not st.session_state.ingest_stats:
+            st.session_state.ingest_stats = {
+                "pages": "?",
+                "chunks": existing_count,
+                "file": "Previously ingested document",
+            }
+    except Exception:
+        st.session_state.db_ready = False
 
 
 @st.cache_resource(show_spinner=False)
@@ -232,15 +248,16 @@ with tab_ingest:
             progress_bar.progress(65, text="🔢 Embedding chunks…")
             embeddings = embed_document(chunks, embed_model)
 
-            # Step 5 – Store in ChromaDB
+            # Step 5 – Store in ChromaDB (reset=True wipes old doc, starts fresh)
             progress_bar.progress(80, text="🗄️ Storing in vector database…")
-            collection = initialize_DB(reset=False)
+            collection = initialize_DB(reset=True)   # ← only place reset=True is used
             ids = [str(i) for i in range(len(chunks))]
             collection.add(
                 documents=chunks,
                 embeddings=embeddings,
                 ids=ids,
             )
+            # Re-assign so the rest of the session uses the fresh collection
             st.session_state.collection = collection
 
             # Done
