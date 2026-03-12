@@ -14,4 +14,4 @@ wheels/
 
 data/
 raw_files/
-logging/
+app.logs
