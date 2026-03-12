@@ -107,6 +107,21 @@ html, body, [class*="css"] {
     border-radius: 12px !important;
 }
 
+/* Pin chat input to the very bottom of the viewport */
+.stChatFloatingInputContainer {
+    position: fixed !important;
+    bottom: 0 !important;
+    padding-bottom: 16px !important;
+    background: #0d1117 !important;
+    z-index: 999 !important;
+}
+
+/* Add bottom padding so last message isn't hidden behind the fixed input */
+section[data-testid="stChatMessageContainer"],
+.stChatMessageContainer {
+    padding-bottom: 100px !important;
+}
+
 /* Info / success boxes */
 .stAlert {
     border-radius: 10px !important;
@@ -307,20 +322,25 @@ with tab_chat:
         st.markdown("### Ask anything about your financial report")
         st.caption(f"Document: **{st.session_state.ingest_stats.get('file', '')}** &nbsp;|&nbsp; Session: `{st.session_state.session_id[:8]}…`")
 
-        # Render chat history
-        for msg in st.session_state.chat_history:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        # Scrollable message history container — input floats below this
+        chat_container = st.container(height=520, border=False)
+        with chat_container:
+            for msg in st.session_state.chat_history:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
 
-        # Chat input
+        # Chat input — Streamlit renders this outside/after the container,
+        # so it always sits at the bottom of the page
         if user_input := st.chat_input("Ask a question about the financial report…"):
-            # Show user message immediately
+            # Append to history then re-render inside the container
             st.session_state.chat_history.append({"role": "user", "content": user_input})
-            with st.chat_message("user"):
-                st.markdown(user_input)
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(user_input)
 
             # Generate response
-            with st.chat_message("assistant"):
+            with chat_container:
+              with st.chat_message("assistant"):
                 with st.spinner("Analysing report…"):
                     response = generate_response(
                         session_id=st.session_state.session_id,
