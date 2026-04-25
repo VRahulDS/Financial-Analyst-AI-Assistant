@@ -1,7 +1,7 @@
 # Finance Analyst AI
 ### RAG-Powered Financial Document Chatbot
 
-> Submitted to: **ReadyTensor Agentic AI Essentials**
+> Submitted to: **ReadyTensor Agentic AI Essentials**  
 > Built with: LangChain · ChromaDB · Groq LLM · HuggingFace Embeddings · Streamlit
 
 ---
@@ -27,6 +27,8 @@ The system is composed of six modular pipeline stages:
 | **5. Store** | Embeddings and chunks are persisted in ChromaDB (`PersistentClient`) on disk. |
 | **6. Retrieve & Generate** | At query time, the user question is embedded, top-N chunks are retrieved, and the Groq LLM generates a grounded answer with conversation memory. |
 
+The retrieval and generation pipeline is evaluated using structured metrics to ensure grounded and relevant responses.
+
 ---
 
 ## Key Features
@@ -38,6 +40,28 @@ The system is composed of six modular pipeline stages:
 - **Grounded answers only** — the LLM is instructed never to use knowledge outside the document
 - **Progress feedback** — step-by-step progress bar during ingestion
 - **Auto-detect existing DB** — if a document was previously ingested, the Chat tab is ready immediately on restart
+
+---
+
+## Evaluation
+
+The system was evaluated using the **RAGAS framework** to measure retrieval and generation quality.
+
+### Metrics
+
+| Metric | Score |
+|---|---|
+| **Faithfulness** | 0.70 |
+| **Context Recall** | 0.97 |
+| **Context Precision** | 0.40 |
+
+### Insights
+
+- High **context recall (0.97)** indicates strong coverage of relevant information
+- Moderate **faithfulness (0.70)** suggests responses are mostly grounded in retrieved context
+- Lower **context precision (0.40)** indicates retrieval of some irrelevant chunks, introducing noise
+
+These results show that while the system retrieves relevant information effectively, improving retrieval precision can further enhance answer quality.
 
 ---
 
@@ -74,9 +98,9 @@ financial-analyst-assistant/
     ├── retrieve_documents/       # ChromaDB retriever
     ├── sessions/                 # Session store (per-user memory)
     └── upload_document/          # Streamlit file upload handler
-    |__ db_setup/                 # Setting up the DB
+    └── db_setup/                 # Setting up the DB
 data/
-    ├── raw_files/                # Uploaded PDF files
+├── raw_files/                    # Uploaded PDF files
 DB/                               # Chroma DB
 .venv                             # Virtual environment
 paths.py                          # Paths for all the necessary files and directories
@@ -90,7 +114,7 @@ pyproject.toml
 ### Prerequisites
 
 - Python 3.10 or higher
-- A Groq API key — free tier available at [console.groq.com](https://console.groq.com)
+- A Groq API key — free tier available at https://console.groq.com
 
 ### Step-by-step
 
@@ -100,15 +124,13 @@ git clone https://github.com/VRahulDS/Financial-Analyst-AI-Assistant.git
 cd financial-analyst-assistant
 ```
 
-**2. Install dependencies from `pyproject.toml`**
+**2. Install dependencies**
 ```bash
 pip install -e .
 ```
 
-
 **3. Set your Groq API key**
-# Windows(.env file)
-```.env
+```env
 GROQ_API_KEY="your_key_here"
 ```
 
@@ -123,84 +145,59 @@ streamlit run app.py
 
 ### Tab 1 — Upload & Ingest
 
-Use this tab to load a financial document into the system.
-
-1. Click **Browse files** and select a PDF financial report
-2. Click the **Ingest Document** button
-3. Watch the progress bar advance through five stages: Load → Chunk → Embed Model → Embed → Store
-4. Once complete, the right panel shows page count and chunk count
-5. Switch to the **Chat** tab — the database is now ready
-
-> **Tip:** If you restart the app without uploading a new file, the previously ingested document is automatically detected and the Chat tab is ready immediately.
+1. Upload a PDF financial report
+2. Click **Ingest Document**
+3. Wait for processing (Load → Chunk → Embed → Store)
+4. Switch to Chat tab
 
 ### Tab 2 — Chat
 
-1. Type a question about the financial report in the input box at the bottom
-2. Press **Enter** or click the send button
-3. The system retrieves the most relevant document chunks and generates a grounded answer
-4. Follow-up questions are supported — the chatbot maintains a rolling conversation summary
-
-### Example Questions
-
-- What was the total revenue for FY2023?
-- How did operating expenses change year over year?
-- What are the key risk factors mentioned in the report?
-- Summarise the CEO's message to shareholders
-- What is the company's cash position at end of period?
-- Which segments contributed most to revenue growth?
-
-### Switching to a New Document
-
-Go back to the **Upload & Ingest** tab, upload the new PDF, and click **Ingest Document**. The old collection is automatically deleted and replaced. Chat history is also reset.
-
----
-
-## Configuration Reference (`config.yaml`)
-
-| Key | Default | Description |
-|---|---|---|
-| `llm` | `llama-3.1-8b-instant` | Groq model name |
-| `vectordb.n_results` | `5` | Number of chunks retrieved per query |
-| `memory_strategies.summarization_max_tokens` | `1000` | Max tokens for memory summary |
-| `memory_strategies.trimming_window_size` | `6` | Number of turns before summarisation |
+- Ask questions about the document
+- Follow-up questions supported via memory
 
 ---
 
 ## Inputs & Outputs
 
 ### Input
-- A PDF financial report (any length) — uploaded via the UI
-- Natural language questions typed in the chat interface
+
+- PDF financial report
+- Natural language queries
 
 ### Output
-- Markdown-formatted answers grounded in the uploaded document
-- Bullet-pointed financial insights where appropriate
-- `"The question is not answerable given the provided documents."` — if the answer cannot be found
 
-### What the Model Will NOT Do
-- Answer using outside knowledge — all answers are strictly document-grounded
-- Provide speculative investment advice
-- Fabricate financial figures or metrics
+- Grounded answers based on document
+- Structured markdown responses
+- Fallback when answer not found
+
+---
+
+## Limitations
+
+- Works best with **text-based PDFs**
+- Performance degrades for **scanned/image-based documents** (no OCR support)
+- Multi-column or complex layouts may affect text extraction quality
+- Retrieval precision may introduce irrelevant context in some responses
 
 ---
 
 ## ReadyTensor Submission Notes
 
-This project was built for the **ReadyTensor Agentic AI Essentials** programme and demonstrates the following concepts:
+This project demonstrates:
 
-| Concept | Implementation |
-|---|---|
-| Retrieval-Augmented Generation | ChromaDB vector retrieval grounding every LLM response |
-| Vector Databases | ChromaDB `PersistentClient` with semantic similarity search |
-| Agentic Memory | `ConversationSummaryMemory` for stateful multi-turn dialogue |
-| Prompt Engineering | YAML-driven prompt construction with role, constraints, tone, and output format |
-| Reasoning Strategies | Configurable CoT / ReAct / Self-Ask patterns in `config.yaml` |
-| Modular Pipeline Design | Each stage (load, chunk, embed, store, retrieve, generate) is an independent, testable module |
+- Retrieval-Augmented Generation
+- Vector database usage
+- Agentic conversational memory
+- Prompt engineering
+- Modular pipeline design
 
 ---
 
 *Finance Analyst AI · ReadyTensor Agentic AI Essentials · 2026*
 
-Author
+---
+
+## Author
+
 ### Vasala Rahul
 ##### Data Scientist
